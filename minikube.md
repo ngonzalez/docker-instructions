@@ -8,11 +8,15 @@ minikube config set driver hyperkit
 ```
 
 ```
-minikube ssh
+minikube addons enable ingress
 ```
 
 ```
 minikube start
+```
+
+```
+minikube ssh
 ```
 
 ```
