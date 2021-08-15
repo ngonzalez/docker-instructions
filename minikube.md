@@ -34,7 +34,7 @@ minikube dashboard
 ```
 
 ```
-minikube tunnel
+sudo minikube tunnel
 ```
 
 ```
