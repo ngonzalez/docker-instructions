@@ -18,11 +18,11 @@ minikube config get disk-size
 ```
 
 ```
-minikube addons enable ingress
+minikube start
 ```
 
 ```
-minikube start
+minikube addons enable ingress
 ```
 
 ```
