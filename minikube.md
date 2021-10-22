@@ -21,7 +21,7 @@ minikube config get disk-size
 ```
 
 ```
-minikube start
+minikube start --kubernetes-version=v1.22.2
 ```
 
 ```
