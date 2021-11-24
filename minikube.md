@@ -2,8 +2,16 @@
 https://minikube.sigs.k8s.io/docs/start/
 
 ```
+brew install hyperkit
+```
+
+```
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-amd64
 sudo install minikube-darwin-amd64 /usr/local/bin/minikube
+```
+
+```
+ln -fs $(which minikube) /usr/local/bin/kubectl
 ```
 
 ```
@@ -21,7 +29,7 @@ minikube config get disk-size
 ```
 
 ```
-minikube start --kubernetes-version=v1.22.2
+minikube start --kubernetes-version=$(curl -L -s https://dl.k8s.io/release/stable.txt)
 ```
 
 ```
