@@ -1,4 +1,18 @@
-```sudo apt install -yq golang-cfssl```
+#### Install cfssl
+
+```shell
+wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl_1.6.1_linux_amd64 -O cfssl
+chmod +x cfssl
+sudo mv cfssl /usr/local/bin
+```
+
+```shell
+wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssljson_1.6.1_linux_amd64 -O cfssljson
+chmod +x cfssljson
+sudo mv cfssljson /usr/local/bin
+```
+
+#### Generate certificates
 
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
@@ -6,7 +20,7 @@ cat <<EOF | cfssl genkey - | cfssljson -bare server
   "hosts": [
     "kubernetes.docker.internal"
   ],
-  "CN": "kubernetes.docker.internal",
+  "CN": "nginx-server",
   "key": {
     "algo": "ecdsa",
     "size": 256
@@ -18,7 +32,7 @@ EOF
 ```shell
 cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
 {
-  "CN": "k8s.io",
+  "CN": "nginx-server",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -32,7 +46,7 @@ kubectl apply -f - <<EOL
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
-  name: app-csr
+  name: nginx-server
   namespace: k8s
 spec:
   request: $(cat server.csr | base64 | tr -d '\n')
@@ -44,32 +58,34 @@ spec:
 EOL
 ```
 
-```
-kubectl -n k8s certificate approve app-csr
+```shell
+kubectl -n k8s delete csr nginx-server
+kubectl -n k8s delete secret server
+kubectl -n k8s delete configmap serving-ca
 ```
 
-```shell
-kubectl -n k8s get csr app-csr -o jsonpath='{.spec.request}' | \
+```
+kubectl -n k8s certificate approve nginx-server
+
+kubectl -n k8s get csr nginx-server -o jsonpath='{.spec.request}' | \
   base64 --decode | \
   cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | \
   cfssljson -bare ca-signed-server
-```
 
-```shell
-kubectl -n k8s get csr app-csr -o json | \
+kubectl -n k8s get csr nginx-server -o json | \
   jq '.status.certificate = "'$(base64 ca-signed-server.pem | tr -d '\n')'"' | \
-  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/app-csr/status -f -
+  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/nginx-server/status -f -
+
+kubectl -n k8s get csr nginx-server -o jsonpath='{.status.certificate}' \
+    | base64 --decode > server.crt
+
+kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
+
+kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
 ```
 
-```shell
-kubectl -n k8s get csr app-csr -o jsonpath='{.status.certificate}' \
-    | base64 --decode > server.crt
-````
+#### Verify certificate with openssl
 
-```shell
-kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
-````
-
-```shell
-kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
+```
+openssl s_client -CAfile ca.pem -connect kubernetes.docker.internal:443
 ```
