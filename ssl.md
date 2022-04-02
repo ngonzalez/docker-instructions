@@ -106,16 +106,9 @@ kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
 openssl s_client -CAfile ca.pem -connect kubernetes.docker.internal:443
 ```
 
-#### Create a chain certificate for Nginx
-https://nginx.org/en/docs/http/configuring_https_servers.html
-
-```shell
-cat server.crt ca-signed-server.csr ca-signed-server.pem > server.chained.crt
-```
-
 #### Configure Nginx
 
 ```
-ssl_certificate /home/debian/server.chained.crt;
+ssl_certificate /home/debian/server.crt;
 ssl_certificate_key /home/debian/server-key.pem;
 ```
