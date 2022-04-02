@@ -7,3 +7,5 @@
 ✨ pgadmin: [pgadmin.md](https://github.com/ngonzalez/docker-instructions/blob/main/pgadmin.md)
 
 ✨ postgresql: [postgresql.md](https://github.com/ngonzalez/docker-instructions/blob/main/postgresql.md)
+
+✨ nginx ssl certificates: [ssl.md](https://github.com/ngonzalez/docker-instructions/blob/main/ssl.md)
