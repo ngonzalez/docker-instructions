@@ -60,6 +60,26 @@ spec:
 EOL
 ```
 
+```shell
+cat > server-signing-config.json <<EOL
+{
+    "signing": {
+        "default": {
+            "usages": [
+                "digital signature",
+                "key encipherment",
+                "server auth"
+            ],
+            "expiry": "876000h",
+            "ca_constraint": {
+                "is_ca": false
+            }
+        }
+    }
+}
+EOL
+```
+
 ```
 kubectl -n k8s certificate approve nginx-server
 
