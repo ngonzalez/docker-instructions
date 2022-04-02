@@ -4,14 +4,14 @@
 wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl_1.6.1_linux_amd64 -O cfssl
 chmod +x cfssl
 sudo mv cfssl /usr/local/bin
-ln -s /usr/local/bin/cfssl /usr/bin/cfssl
+ln -fs /usr/local/bin/cfssl /usr/bin/cfssl
 ```
 
 ```shell
 wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssljson_1.6.1_linux_amd64 -O cfssljson
 chmod +x cfssljson
 sudo mv cfssljson /usr/local/bin
-ln -s /usr/local/bin/cfssljson /usr/bin/cfssljson
+ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 ```
 
 #### Generate certificates
