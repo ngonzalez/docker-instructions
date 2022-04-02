@@ -60,12 +60,6 @@ spec:
 EOL
 ```
 
-```shell
-kubectl -n k8s delete csr nginx-server
-kubectl -n k8s delete secret server
-kubectl -n k8s delete configmap serving-ca
-```
-
 ```
 kubectl -n k8s certificate approve nginx-server
 
