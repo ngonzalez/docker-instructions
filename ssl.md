@@ -100,15 +100,15 @@ kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
 kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
 ```
 
-#### Verify certificate with openssl
-
-```
-openssl s_client -CAfile ca.pem -connect kubernetes.docker.internal:443
-```
-
 #### Configure Nginx
 
 ```
 ssl_certificate /home/debian/server.crt;
 ssl_certificate_key /home/debian/server-key.pem;
+```
+
+#### Verify certificate with openssl
+
+```
+openssl s_client -CAfile ca.pem -connect kubernetes.docker.internal:443
 ```
