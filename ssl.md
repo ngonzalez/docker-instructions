@@ -4,25 +4,31 @@
 wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl_1.6.1_linux_amd64 -O cfssl
 chmod +x cfssl
 sudo mv cfssl /usr/local/bin
-ln -fs /usr/local/bin/cfssl /usr/bin/cfssl
+sudo ln -fs /usr/local/bin/cfssl /usr/bin/cfssl
 ```
 
 ```shell
 wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssljson_1.6.1_linux_amd64 -O cfssljson
 chmod +x cfssljson
 sudo mv cfssljson /usr/local/bin
-ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
+sudo ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 ```
 
 #### Generate certificates
+
+```
+kubectl -n k8s delete csr link12.ddns.net
+kubectl -n k8s delete secret server
+kubectl -n k8s delete configmap serving-ca
+```
 
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
 {
   "hosts": [
-    "kubernetes.docker.internal"
+    "link12.ddns.net"
   ],
-  "CN": "nginx-server",
+  "CN": "link12.ddns.net",
   "key": {
     "algo": "ecdsa",
     "size": 256
@@ -34,7 +40,7 @@ EOF
 ```shell
 cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
 {
-  "CN": "nginx-server",
+  "CN": "link12.ddns.net",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -48,11 +54,11 @@ kubectl apply -f - <<EOL
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
-  name: nginx-server
+  name: link12.ddns.net
   namespace: k8s
 spec:
   request: $(cat server.csr | base64 | tr -d '\n')
-  signerName: kubernetes.docker.internal/serving
+  signerName: link12.ddns.net/serving
   usages:
   - digital signature
   - key encipherment
@@ -81,18 +87,18 @@ EOL
 ```
 
 ```
-kubectl -n k8s certificate approve nginx-server
+kubectl -n k8s certificate approve link12.ddns.net
 
-kubectl -n k8s get csr nginx-server -o jsonpath='{.spec.request}' | \
+kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.spec.request}' | \
   base64 --decode | \
   cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | \
   cfssljson -bare ca-signed-server
 
-kubectl -n k8s get csr nginx-server -o json | \
+kubectl -n k8s get csr link12.ddns.net -o json | \
   jq '.status.certificate = "'$(base64 ca-signed-server.pem | tr -d '\n')'"' | \
-  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/nginx-server/status -f -
+  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/link12.ddns.net/status -f -
 
-kubectl -n k8s get csr nginx-server -o jsonpath='{.status.certificate}' \
+kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
     | base64 --decode > server.crt
 
 kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
@@ -100,15 +106,28 @@ kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
 kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
 ```
 
+```
+kubectl -n k8s get csr link12.ddns.net
+kubectl -n k8s get secret server
+kubectl -n k8s get configmap serving-ca
+```
+
 #### Configure Nginx
 
 ```
-ssl_certificate /home/debian/server.crt;
-ssl_certificate_key /home/debian/server-key.pem;
+ssl_certificate /etc/ssl/certs/server.crt
+ssl_certificate_key /etc/ssl/private/server-key.pem
 ```
 
 #### Verify certificate with openssl
 
+```shell
+openssl s_client -CAfile ca.pem -connect link12.ddns.net:443
 ```
-openssl s_client -CAfile ca.pem -connect kubernetes.docker.internal:443
+
+#### bundle with cfssl
+
+```shell
+cfssl bundle -domain link12.ddns.net -cert server.crt -key server-key.pem -ca-bundle ca.pem | jq .bundle -r > bundle.crt
+cfssl bundle -domain link12.ddns.net -cert server.crt -key server-key.pem -ca-bundle ca.pem | cfssljson -bare bundle
 ```
