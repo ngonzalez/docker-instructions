@@ -14,7 +14,7 @@ sudo mv cfssljson /usr/local/bin
 sudo ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 ```
 
-#### Generate certificates
+#### Generate server and certificate authority certificates
 
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
@@ -40,6 +40,8 @@ cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
 EOF
 ```
 
+#### Create certificate signing request
+
 ```shell
 kubectl apply -f - <<EOL
 apiVersion: certificates.k8s.io/v1
@@ -56,6 +58,12 @@ spec:
   - server auth
 EOL
 ```
+
+```shell
+kubectl -n k8s certificate approve link12.ddns.net
+```
+
+#### Sign server certificate
 
 ```shell
 cat > server-signing-config.json <<EOL
@@ -75,10 +83,6 @@ cat > server-signing-config.json <<EOL
     }
 }
 EOL
-```
-
-```shell
-kubectl -n k8s certificate approve link12.ddns.net
 ```
 
 ```shell
