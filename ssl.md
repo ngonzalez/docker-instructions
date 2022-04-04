@@ -1,5 +1,4 @@
 #### Install cfssl
-
 ```shell
 wget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl_1.6.1_linux_amd64 -O cfssl
 chmod +x cfssl
@@ -14,8 +13,81 @@ sudo mv cfssljson /usr/local/bin
 sudo ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 ```
 
-#### Generate server and certificate authority certificates
+#### Create root ca
+```shell
+cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
+{
+  "CN": "Link12 Root CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [{
+    "C": "FR",
+    "L": "Paris",
+    "O": "Ngonzalez",
+    "OU": "Link12 Root CA",
+    "ST": "France"
+  }],
+  "ca": {
+    "expiry": "42720h"
+  }
+}
+EOF
+```
 
+#### Create intermediate ca
+```shell
+cat <<EOF | cfssl gencert -initca - | cfssljson -bare intermediate_ca
+{
+  "CN": "Link12 Intermediate CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [{
+    "C": "FR",
+    "L": "Paris",
+    "O": "Ngonzalez",
+    "OU": "Link12 Intermediate CA",
+    "ST": "France"
+  }],
+  "ca": {
+    "expiry": "42720h"
+  }
+}
+EOF
+```
+
+#### Sign intermediate ca
+```shell
+cat > intermediate-signing-config.json <<EOL
+{
+    "signing": {
+        "default": {
+            "expiry": "8760h"
+        },
+        "profiles": {
+            "intermediate": {
+                "usages": ["cert sign", "crl sign"],
+                "expiry": "70080h",
+                "ca_constraint": {
+                    "is_ca": true,
+                    "max_path_len": 1
+                }
+            }
+        }
+    }
+}
+EOL
+```
+
+```shell
+cat intermediate_ca.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config intermediate-signing-config.json -profile intermediate - | \
+cfssljson -bare intermediate-ca-signed
+```
+
+#### Create server certificate
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
 {
@@ -23,24 +95,25 @@ cat <<EOF | cfssl genkey - | cfssljson -bare server
   "key": {
     "algo": "ecdsa",
     "size": 256
-  }
+  },
+  "names": [{
+    "C": "FR",
+    "L": "Paris",
+    "O": "Ngonzalez",
+    "OU": "Link12 Root CA",
+    "ST": "France"
+  }],
+  "hosts": [
+    "link12.ddns.net"
+  ]
 }
 EOF
 ```
 
+#### Sign server certificate
 ```shell
-cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
-{
-  "CN": "link12.ddns.net",
-  "key": {
-    "algo": "rsa",
-    "size": 2048
-  }
-}
-EOF
+kubectl -n k8s delete csr link12.ddns.net
 ```
-
-#### Create certificate signing request
 
 ```shell
 kubectl apply -f - <<EOL
@@ -63,8 +136,6 @@ EOL
 kubectl -n k8s certificate approve link12.ddns.net
 ```
 
-#### Sign server certificate
-
 ```shell
 cat > server-signing-config.json <<EOL
 {
@@ -75,7 +146,7 @@ cat > server-signing-config.json <<EOL
                 "key encipherment",
                 "server auth"
             ],
-            "expiry": "876000h",
+            "expiry": "8760h",
             "ca_constraint": {
                 "is_ca": false
             }
@@ -89,10 +160,10 @@ EOL
 kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.spec.request}' | \
   base64 --decode | \
   cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | \
-  cfssljson -bare ca-signed-server
+  cfssljson -bare ca-signed
 
 kubectl -n k8s get csr link12.ddns.net -o json | \
-  jq '.status.certificate = "'$(base64 ca-signed-server.pem | tr -d '\n')'"' | \
+  jq '.status.certificate = "'$(base64 ca-signed.pem | tr -d '\n')'"' | \
   kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/link12.ddns.net/status -f -
 
 kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
@@ -100,26 +171,43 @@ kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
 ```
 
 #### Create secret
+```shell
+kubectl -n k8s delete secret server
+```
 
 ```shell
 kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
+```
+
+```shell
 kubectl -n k8s get secret server
 ```
 
 #### Create configmap
+```shell
+kubectl -n k8s delete configmap serving-ca
+```
 
 ```shell
 kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
+```
+
+```shell
 kubectl -n k8s get configmap serving-ca
 ```
 
 #### bundle with cfssl
+```shell
+wget https://pki.goog/repo/certs/gsr4.pem
+cat intermediate-ca-signed.pem gsr4.pem > intermediate.bundle.pem
+```
 
 ```shell
 cfssl bundle -domain link12.ddns.net \
              -cert server.crt \
              -key server-key.pem \
              -ca-bundle ca.pem \
+             -int-bundle intermediate.bundle.pem \
              > bundle.json
 
 cat bundle.json | jq .bundle -r > bundle.crt
