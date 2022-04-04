@@ -69,7 +69,10 @@ cat > intermediate-signing-config.json <<EOL
         },
         "profiles": {
             "intermediate": {
-                "usages": ["cert sign", "crl sign"],
+                "usages": [
+                    "cert sign", 
+                    "crl sign"
+                ],
                 "expiry": "70080h",
                 "ca_constraint": {
                     "is_ca": true,
@@ -112,43 +115,23 @@ EOF
 
 #### Sign server certificate
 ```shell
-kubectl -n k8s delete csr link12.ddns.net
-```
-
-```shell
-kubectl apply -f - <<EOL
-apiVersion: certificates.k8s.io/v1
-kind: CertificateSigningRequest
-metadata:
-  name: link12.ddns.net
-  namespace: k8s
-spec:
-  request: $(cat server.csr | base64 | tr -d '\n')
-  signerName: link12.ddns.net/serving
-  usages:
-  - digital signature
-  - key encipherment
-  - server auth
-EOL
-```
-
-```shell
-kubectl -n k8s certificate approve link12.ddns.net
-```
-
-```shell
 cat > server-signing-config.json <<EOL
 {
     "signing": {
         "default": {
-            "usages": [
-                "digital signature",
-                "key encipherment",
-                "server auth"
-            ],
-            "expiry": "8760h",
-            "ca_constraint": {
-                "is_ca": false
+            "expiry": "8760h"
+        },
+        "profiles": {
+            "server": {
+                "usages": [
+                    "digital signature",
+                    "key encipherment",
+                    "server auth"
+                ],
+                "expiry": "70080h",
+                "ca_constraint": {
+                    "is_ca": false
+                }
             }
         }
     }
@@ -157,57 +140,22 @@ EOL
 ```
 
 ```shell
-kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.spec.request}' | \
-  base64 --decode | \
-  cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | \
-  cfssljson -bare ca-signed
-
-kubectl -n k8s get csr link12.ddns.net -o json | \
-  jq '.status.certificate = "'$(base64 ca-signed.pem | tr -d '\n')'"' | \
-  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/link12.ddns.net/status -f -
-
-kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
-  | base64 --decode > server.crt
-```
-
-#### Create secret
-```shell
-kubectl -n k8s delete secret server
-```
-
-```shell
-kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
-```
-
-```shell
-kubectl -n k8s get secret server
-```
-
-#### Create configmap
-```shell
-kubectl -n k8s delete configmap serving-ca
-```
-
-```shell
-kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
-```
-
-```shell
-kubectl -n k8s get configmap serving-ca
+cat server.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json -profile server - | \
+cfssljson -bare server
 ```
 
 #### bundle with cfssl
 ```shell
 wget https://pki.goog/repo/certs/gsr4.pem
-cat intermediate-ca-signed.pem gsr4.pem > intermediate.bundle.pem
+cat intermediate-ca-signed.pem gsr4.pem > intermediate-bundle.pem
 ```
 
 ```shell
 cfssl bundle -domain link12.ddns.net \
-             -cert server.crt \
+             -cert server.pem \
              -key server-key.pem \
              -ca-bundle ca.pem \
-             -int-bundle intermediate.bundle.pem \
+             -int-bundle intermediate-bundle.pem \
              > bundle.json
 
 cat bundle.json | jq .bundle -r > bundle.crt
