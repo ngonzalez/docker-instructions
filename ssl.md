@@ -87,7 +87,7 @@ EOL
 
 ```shell
 cat intermediate_ca.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config intermediate-signing-config.json -profile intermediate - | \
-cfssljson -bare intermediate-ca-signed
+cfssljson -bare intermediate
 ```
 
 #### Create server certificate
@@ -146,16 +146,11 @@ cfssljson -bare server
 
 #### bundle with cfssl
 ```shell
-wget https://secure.globalsign.com/cacert/gsgccr3dvtlsca2020.crt
-cat intermediate-ca-signed.pem gsgccr3dvtlsca2020.crt > intermediate-bundle.pem
-```
-
-```shell
 cfssl bundle -domain link12.ddns.net \
              -cert server.pem \
              -key server-key.pem \
              -ca-bundle ca.pem \
-             -int-bundle intermediate-bundle.pem \
+             -int-bundle intermediate.pem \
              > bundle.json
 
 cat bundle.json | jq .bundle -r > bundle.crt
