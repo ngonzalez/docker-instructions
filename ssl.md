@@ -146,8 +146,8 @@ cfssljson -bare server
 
 #### bundle with cfssl
 ```shell
-wget https://pki.goog/repo/certs/gsr4.pem
-cat intermediate-ca-signed.pem gsr4.pem > intermediate-bundle.pem
+wget https://secure.globalsign.com/cacert/gsgccr3dvtlsca2020.crt
+cat intermediate-ca-signed.pem gsgccr3dvtlsca2020.crt > intermediate-bundle.pem
 ```
 
 ```shell
