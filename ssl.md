@@ -103,7 +103,7 @@ cat <<EOF | cfssl genkey - | cfssljson -bare server
     "C": "FR",
     "L": "Paris",
     "O": "Ngonzalez",
-    "OU": "Link12 Root CA",
+    "OU": "Link12",
     "ST": "France"
   }],
   "hosts": [
