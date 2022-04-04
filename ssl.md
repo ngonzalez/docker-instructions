@@ -16,18 +16,9 @@ sudo ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 
 #### Generate certificates
 
-```
-kubectl -n k8s delete csr link12.ddns.net
-kubectl -n k8s delete secret server
-kubectl -n k8s delete configmap serving-ca
-```
-
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
 {
-  "hosts": [
-    "link12.ddns.net"
-  ],
   "CN": "link12.ddns.net",
   "key": {
     "algo": "ecdsa",
@@ -86,9 +77,11 @@ cat > server-signing-config.json <<EOL
 EOL
 ```
 
-```
+```shell
 kubectl -n k8s certificate approve link12.ddns.net
+```
 
+```shell
 kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.spec.request}' | \
   base64 --decode | \
   cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | \
@@ -99,35 +92,45 @@ kubectl -n k8s get csr link12.ddns.net -o json | \
   kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/link12.ddns.net/status -f -
 
 kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
-    | base64 --decode > server.crt
-
-kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
-
-kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
+  | base64 --decode > server.crt
 ```
 
-```
-kubectl -n k8s get csr link12.ddns.net
-kubectl -n k8s get secret server
-kubectl -n k8s get configmap serving-ca
-```
-
-#### Configure Nginx
-
-```
-ssl_certificate /etc/ssl/certs/server.crt
-ssl_certificate_key /etc/ssl/private/server-key.pem
-```
-
-#### Verify certificate with openssl
+#### Create secret
 
 ```shell
-openssl s_client -CAfile ca.pem -connect link12.ddns.net:443
+kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
+kubectl -n k8s get secret server
+```
+
+#### Create configmap
+
+```shell
+kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
+kubectl -n k8s get configmap serving-ca
 ```
 
 #### bundle with cfssl
 
 ```shell
-cfssl bundle -domain link12.ddns.net -cert server.crt -key server-key.pem -ca-bundle ca.pem | jq .bundle -r > bundle.crt
-cfssl bundle -domain link12.ddns.net -cert server.crt -key server-key.pem -ca-bundle ca.pem | cfssljson -bare bundle
+cfssl bundle -domain link12.ddns.net \
+             -cert server.crt \
+             -key server-key.pem \
+             -ca-bundle ca.pem \
+             > bundle.json
+
+cat bundle.json | jq .bundle -r > bundle.crt
+cat bundle.json | jq .key -r > bundle-key.pem
+```
+
+#### Configure Nginx
+
+```
+ssl_certificate /etc/ssl/certs/bundle.crt
+ssl_certificate_key /etc/ssl/private/bundle-key.pem
+```
+
+#### Try to connect with openssl
+
+```shell
+openssl s_client -CAfile ca.pem -connect link12.ddns.net:443
 ```
