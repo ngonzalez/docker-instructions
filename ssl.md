@@ -17,21 +17,21 @@ sudo ln -fs /usr/local/bin/cfssljson /usr/bin/cfssljson
 ```shell
 cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
 {
-  "CN": "link12.ddns.net",
-  "key": {
-    "algo": "rsa",
-    "size": 2048
-  },
-  "names": [{
-    "C": "FR",
-    "L": "Paris",
-    "O": "Ngonzalez",
-    "OU": "Link12",
-    "ST": "France"
-  }],
-  "ca": {
-    "expiry": "42720h"
-  }
+    "CN": "link12.ddns.net",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [{
+        "C": "FR",
+        "L": "Paris",
+        "O": "Ngonzalez",
+        "OU": "Link12",
+        "ST": "France"
+    }],
+    "ca": {
+        "expiry": "42720h"
+    }
 }
 EOF
 ```
@@ -40,21 +40,21 @@ EOF
 ```shell
 cat <<EOF | cfssl gencert -initca - | cfssljson -bare intermediate_ca
 {
-  "CN": "link12.ddns.net",
-  "key": {
-    "algo": "rsa",
-    "size": 2048
-  },
-  "names": [{
-    "C": "FR",
-    "L": "Paris",
-    "O": "Ngonzalez",
-    "OU": "Link12",
-    "ST": "France"
-  }],
-  "ca": {
-    "expiry": "42720h"
-  }
+    "CN": "link12.ddns.net",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [{
+        "C": "FR",
+        "L": "Paris",
+        "O": "Ngonzalez",
+        "OU": "Link12",
+        "ST": "France"
+    }],
+    "ca": {
+        "expiry": "42720h"
+    }
 }
 EOF
 ```
@@ -94,21 +94,21 @@ cfssljson -bare intermediate
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
 {
-  "CN": "link12.ddns.net",
-  "key": {
-    "algo": "ecdsa",
-    "size": 256
-  },
-  "names": [{
-    "C": "FR",
-    "L": "Paris",
-    "O": "Ngonzalez",
-    "OU": "Link12",
-    "ST": "France"
-  }],
-  "hosts": [
-    "link12.ddns.net"
-  ]
+    "CN": "link12.ddns.net",
+    "key": {
+        "algo": "ecdsa",
+        "size": 256
+    },
+    "names": [{
+        "C": "FR",
+        "L": "Paris",
+        "O": "Ngonzalez",
+        "OU": "Link12",
+        "ST": "France"
+    }],
+    "hosts": [
+        "link12.ddns.net"
+    ]
 }
 EOF
 ```
