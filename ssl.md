@@ -87,7 +87,7 @@ EOL
 
 ```shell
 cat intermediate_ca.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config intermediate-signing-config.json -profile intermediate - | \
-cfssljson -bare intermediate
+cfssljson -bare int
 ```
 
 #### Create server certificate
@@ -150,7 +150,7 @@ cfssl bundle -domain link12.ddns.net \
              -cert server.pem \
              -key server-key.pem \
              -ca-bundle ca.pem \
-             -int-bundle intermediate.pem \
+             -int-bundle int.pem \
              > bundle.json
 
 cat bundle.json | jq .bundle -r > bundle.crt
