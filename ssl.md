@@ -36,6 +36,60 @@ cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
 EOF
 ```
 
+#### Create intermediate ca
+```shell
+cat <<EOF | cfssl gencert -initca - | cfssljson -bare intermediate_ca
+{
+  "CN": "link12.ddns.net",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [{
+    "C": "FR",
+    "L": "Paris",
+    "O": "Ngonzalez",
+    "OU": "Link12",
+    "ST": "France"
+  }],
+  "ca": {
+    "expiry": "42720h"
+  }
+}
+EOF
+```
+
+#### Sign intermediate ca
+```shell
+cat > intermediate-signing-config.json <<EOL
+{
+    "signing": {
+        "default": {
+            "expiry": "8760h"
+        },
+        "profiles": {
+            "intermediate": {
+                "usages": [
+                    "cert sign", 
+                    "crl sign"
+                ],
+                "expiry": "70080h",
+                "ca_constraint": {
+                    "is_ca": true,
+                    "max_path_len": 1
+                }
+            }
+        }
+    }
+}
+EOL
+```
+
+```shell
+cat intermediate_ca.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config intermediate-signing-config.json -profile intermediate - | \
+cfssljson -bare intermediate
+```
+
 #### Create server certificate
 ```shell
 cat <<EOF | cfssl genkey - | cfssljson -bare server
@@ -85,77 +139,18 @@ cat > server-signing-config.json <<EOL
 EOL
 ```
 
-```
-kubectl -n k8s delete csr link12.ddns.net
-```
-
-```
-kubectl apply -f - <<EOL
-apiVersion: certificates.k8s.io/v1
-kind: CertificateSigningRequest
-metadata:
-  namespace: k8s
-  name: link12.ddns.net
-spec:
-  request: $(cat server.csr | base64 | tr -d '\n')
-  signerName: link12.ddns.net/serving
-  usages:
-  - digital signature
-  - key encipherment
-  - server auth
-EOL
-```
-
-```
-kubectl -n k8s certificate approve link12.ddns.net
-```
-
-```
-kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.spec.request}' | \
-  base64 --decode | \
-  cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json -profile server - | \
-  cfssljson -bare ca-signed-server
-
-kubectl -n k8s get csr link12.ddns.net -o json | \
-  jq '.status.certificate = "'$(base64 ca-signed-server.pem | tr -d '\n')'"' | \
-  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/link12.ddns.net/status -f -
-
-kubectl -n k8s get csr link12.ddns.net -o jsonpath='{.status.certificate}' \
-  | base64 --decode > server.crt
-````
-
-#### Create secret
 ```shell
-kubectl -n k8s delete secret server
-```
-
-```shell
-kubectl -n k8s create secret tls server --cert server.crt --key server-key.pem
-```
-
-```shell
-kubectl -n k8s get secret server
-```
-
-#### Create configmap
-```shell
-kubectl -n k8s delete configmap serving-ca
-```
-
-```shell
-kubectl -n k8s create configmap serving-ca --from-file ca.crt=ca.pem
-```
-
-```shell
-kubectl -n k8s get configmap serving-ca
+cat server.csr | cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json -profile server - | \
+cfssljson -bare server
 ```
 
 #### bundle with cfssl
 ```shell
 cfssl bundle -domain link12.ddns.net \
-             -cert server.crt \
+             -cert server.pem \
              -key server-key.pem \
              -ca-bundle ca.pem \
+             -int-bundle intermediate.pem \
              > bundle.json
 
 cat bundle.json | jq .bundle -r > bundle.crt
